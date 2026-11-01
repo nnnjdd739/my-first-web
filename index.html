@@ -21,8 +21,8 @@
         textarea { flex: 1; height: 40px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; resize: none; font-family: inherit; outline: none; }
         button { width: 70px; margin-left: 10px; background-color: #07c160; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 15px; }
     </style>
-    <!-- 🌟 终极替换：改用不受拦截的国内极速 BootCDN -->
-    <script src="https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.8/umd/supabase.min.js"></script>
+    <!-- 🌟 终极替换：饿了么提供的国内极速镜像源，极度稳定 -->
+    <script src="https://npm.elemecdn.com/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <script>
     // 检查库是否加载成功
     if (typeof supabase === 'undefined') {
-        document.getElementById('messageList').innerHTML = '<div style="color:red; text-align:center; margin-top:20px;">❌ 致命错误：Supabase库加载失败，请检查网络！</div>';
+        document.getElementById('messageList').innerHTML = '<div style="color:red; text-align:center; margin-top:20px;">❌ 致命错误：网络无法加载核心库，请尝试关闭广告拦截或切换手机热点。</div>';
         throw new Error("Supabase 库未加载");
     }
 
@@ -110,7 +110,6 @@
     // 实时订阅
     client.channel('my_chat_room')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-          // 如果没有报错，就插在最后
           appendMessage(payload.new); 
       })
       .subscribe();
