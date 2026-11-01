@@ -6,123 +6,45 @@
     <title>我的聊天室</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            background-color: #ededed; /* 微信经典灰底 */
-            font-family: "Microsoft YaHei", sans-serif; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-        }
-        
-        /* 顶部标题栏 */
-        .header { 
-            background-color: #f4f4f4; 
-            text-align: center; 
-            padding: 15px; 
-            font-size: 18px; 
-            font-weight: bold; 
-            color: #333; 
-            border-bottom: 1px solid #ddd;
-            flex-shrink: 0;
-        }
-
-        /* 中间聊天记录区（可滚动） */
-        #messageList { 
-            flex: 1; 
-            overflow-y: auto; 
-            padding: 15px; 
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* 气泡外框 */
-        .msg-row { 
-            display: flex; 
-            margin-bottom: 15px; 
-            width: 100%; 
-        }
+        body { background-color: #ededed; font-family: "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .header { background-color: #f4f4f4; text-align: center; padding: 15px; font-size: 18px; font-weight: bold; color: #333; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+        #messageList { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+        .msg-row { display: flex; margin-bottom: 15px; width: 100%; }
         .msg-row.mine { justify-content: flex-end; }
         .msg-row.others { justify-content: flex-start; }
-
-        /* 气泡本体 */
-        .msg-bubble { 
-            max-width: 75%; 
-            padding: 10px 15px; 
-            border-radius: 8px; 
-            font-size: 15px; 
-            line-height: 1.4;
-            position: relative;
-            word-wrap: break-word;
-        }
-        
-        /* 自己的气泡：微信绿 */
-        .mine .msg-bubble { 
-            background-color: #95ec69; 
-            color: #000; 
-            border-top-right-radius: 0;
-        }
-        
-        /* 别人的气泡：白色 */
-        .others .msg-bubble { 
-            background-color: #ffffff; 
-            color: #333; 
-            border-top-left-radius: 0;
-        }
-
+        .msg-bubble { max-width: 75%; padding: 10px 15px; border-radius: 8px; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+        .mine .msg-bubble { background-color: #95ec69; color: #000; border-top-right-radius: 0; }
+        .others .msg-bubble { background-color: #ffffff; color: #333; border-top-left-radius: 0; }
         .msg-info { font-size: 11px; color: #999; margin-bottom: 4px; }
         .mine .msg-info { text-align: right; }
-
-        /* 底部输入区 */
-        .input-area { 
-            background-color: #f7f7f7; 
-            padding: 10px; 
-            display: flex; 
-            border-top: 1px solid #ddd;
-            flex-shrink: 0;
-        }
-        textarea { 
-            flex: 1; 
-            height: 40px; 
-            padding: 10px; 
-            border: 1px solid #ccc; 
-            border-radius: 5px; 
-            resize: none; 
-            font-family: inherit; 
-            outline: none;
-        }
-        button { 
-            width: 70px; 
-            margin-left: 10px; 
-            background-color: #07c160; /* 微信绿按钮 */
-            color: white; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            font-size: 15px;
-        }
-        button:active { background-color: #06ad56; }
-        button:disabled { background-color: #9be3b6; cursor: not-allowed; }
+        .input-area { background-color: #f7f7f7; padding: 10px; display: flex; border-top: 1px solid #ddd; flex-shrink: 0; }
+        textarea { flex: 1; height: 40px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; resize: none; font-family: inherit; outline: none; }
+        button { width: 70px; margin-left: 10px; background-color: #07c160; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 15px; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 🌟 终极替换：改用不受拦截的国内极速 BootCDN -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.8/umd/supabase.min.js"></script>
 </head>
 <body>
 
 <div class="header">💬 匿名聊天室</div>
-
 <div id="messageList">
-    <!-- 消息会显示在这里 -->
+    <div style="text-align:center; color:#999; margin-top:20px;">正在加载数据...</div>
 </div>
-
 <div class="input-area">
     <textarea id="msgInput" placeholder="输入消息..."></textarea>
-    <button id="submitBtn">发送</button>
+    <button type="button" id="submitBtn">发送</button>
 </div>
 
 <script>
+    // 检查库是否加载成功
+    if (typeof supabase === 'undefined') {
+        document.getElementById('messageList').innerHTML = '<div style="color:red; text-align:center; margin-top:20px;">❌ 致命错误：Supabase库加载失败，请检查网络！</div>';
+        throw new Error("Supabase 库未加载");
+    }
+
     const SUPABASE_URL = 'https://ytzfkeyrobjubitfddrt.supabase.co';
-    // ⚠️ 确保这里是你完整的 eyJ... 开头的旧版密钥
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs';
+    // ⚠️ 必须确保这里填的是你的旧版 eyJ... 长密钥！
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs'; 
     
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -130,115 +52,71 @@
     const btn = document.getElementById('submitBtn');
     const list = document.getElementById('messageList');
 
-    // 🔑 核心技巧：在本地生成一个随机ID，用来区分“我”和“别人”
     let myId = localStorage.getItem('chat_my_id');
     if (!myId) {
-        myId = '用户_' + Math.floor(Math.random() * 10000); // 随机生成个名字
+        myId = '用户_' + Math.floor(Math.random() * 10000);
         localStorage.setItem('chat_my_id', myId);
     }
 
-    // 渲染一条消息的 HTML
-    function appendMessage(msg, isHistory = false) {
-        const isMine = (msg.user_email === myId); // 如果存的名字和我的ID一样，说明是我发的
+    function appendMessage(msg) {
+        const isMine = (msg.user_email === myId);
         const timeStr = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
         const row = document.createElement('div');
         row.className = `msg-row ${isMine ? 'mine' : 'others'}`;
-        
         row.innerHTML = `
             <div>
                 <div class="msg-info">${isMine ? '我' : msg.user_email || '匿名'} · ${timeStr}</div>
                 <div class="msg-bubble">${msg.content}</div>
             </div>
         `;
-
-        if (isHistory) {
-            list.appendChild(row); // 历史记录按顺序接在后面
-        } else {
-            // 新消息来了，追加到末尾，并触发滚动
-            list.appendChild(row);
-            scrollToBottom();
-        }
+        list.appendChild(row);
+        list.scrollTop = list.scrollHeight; // 保持在最底部
     }
 
-    // 平滑滚动到底部
-    function scrollToBottom() {
-        list.scrollTo({
-            top: list.scrollHeight,
-            behavior: 'smooth'
-        });
-    }
-
-    // 1. 加载历史记录
     async function loadMessages() {
-        list.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">正在加载聊天记录...</div>';
-        
-        // 注意：这里变成了 ascending: true (正序)，因为聊天室最新的在下面
-        const { data, error } = await client
-            .from('messages')
-            .select('*')
-            .order('created_at', { ascending: true }); 
-
+        const { data, error } = await client.from('messages').select('*').order('created_at', { ascending: true }); 
         if (error) {
-            list.innerHTML = '<div style="color:red; text-align:center;">读取失败。</div>';
+            list.innerHTML = '<div style="color:red; text-align:center;">❌ 读取历史失败: ' + error.message + '</div>';
             return;
         }
-
         list.innerHTML = ''; 
-        if (data.length === 0) {
-            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">还没有人说话，来打个招呼吧！</div>';
-            return;
+        if(data.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:#999;">还没有人说话，来打个招呼吧！</div>';
+        } else {
+            data.forEach(msg => appendMessage(msg));
         }
-
-        data.forEach(msg => appendMessage(msg, true));
-        
-        // 页面刚打开时，瞬间滚到底部，不需要平滑动画
-        setTimeout(() => { list.scrollTop = list.scrollHeight; }, 100);
     }
 
-    // 2. 发送消息
-    btn.addEventListener('click', sendMessage);
-    input.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); }); // 支持回车发送
-
-    async function sendMessage() {
+    btn.addEventListener('click', async () => {
         const text = input.value.trim();
         if (!text) return;
-
+        
+        btn.innerText = '发送中';
         btn.disabled = true;
-        input.disabled = true;
 
-        // 发送时，把随机生成的 myId 塞进去当作名字
-        const { error } = await client
-            .from('messages')
-            .insert([{ content: text, user_email: myId }]);
-
+        const { error } = await client.from('messages').insert([{ content: text, user_email: myId }]);
+        
+        btn.innerText = '发送';
         btn.disabled = false;
-        input.disabled = false;
         input.focus();
 
         if (error) {
-            alert("发送失败: " + error.message);
+            alert("❌ 发送失败: " + error.message);
         } else {
             input.value = ''; 
         }
-    }
+    });
 
-    // 3. ⚡ 实时接收
-    client.channel('custom-all-channel')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-            // 当接收到别人/自己的消息，追加到下面
-            appendMessage(payload.new, false); 
-        }
-      )
+    // 实时订阅
+    client.channel('my_chat_room')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+          // 如果没有报错，就插在最后
+          appendMessage(payload.new); 
+      })
       .subscribe();
 
-    // t>
-
-</body>初始化
     loadMessages();
-</scrip
+</script>
+
+</body>
 </html>
-    
