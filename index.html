@@ -1,67 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的第一个网页</title>
-    <!-- 这里就是 CSS (皮肤) -->
+    <title>我的留言板</title>
     <style>
-        body {
-            background-color: #f4f4f9;
-            text-align: center;
-            font-family: "Microsoft YaHei", sans-serif;
-            margin-top: 100px;
-        }
-        h1 {
-            color: #333;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3; /* 鼠标放上去变深蓝 */
-        }
-        #msg {
-            margin-top: 30px;
-            font-size: 20px;
-            color: #e74c3c;
-            font-weight: bold;
-        }
+        body { background-color: #f4f4f9; font-family: "Microsoft YaHei", sans-serif; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        textarea { width: 100%; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; resize: none; box-sizing: border-box; font-family: inherit; }
+        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        #messageList { margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
+        .msg-item { background: #f9f9f9; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #007bff; word-wrap: break-word; }
     </style>
 </head>
 <body>
 
-    <!-- 这里就是 HTML (骨架) -->
-    <h1>🚀 欢迎来到我的个人主页</h1>
-    <p>这是我亲手写的第一个网页！</p >
+<div class="container">
+    <h2>📝 我的留言板</h2>
+    <textarea id="msgInput" placeholder="写点什么吧..."></textarea>
+    <button id="submitBtn">发表留言</button>
     
-    <button id="myBtn">点我试试</button>
-    <div id="msg"></div>
+    <div id="messageList">
+        <!-- 留言会显示在这里 -->
+    </div>
+</div>
 
-    <!-- 这里就是 JavaScript (灵魂) -->
-    <script>
-        // 找到网页上的按钮
-        const btn = document.getElementById('myBtn');
-        // 找到用来显示文字的框
-        const msg = document.getElementById('msg');
-        let count = 0;
+<script>
+    const input = document.getElementById('msgInput');
+    const btn = document.getElementById('submitBtn');
+    const list = document.getElementById('messageList');
 
-        // 监听按钮点击事件
-        btn.addEventListener('click', function() {
-            count++;
-            msg.innerText = "🎉 你成功点击了 " + count + " 次！";
-            // 如果你点击了 5 次，变个颜色
-            if (count >= 5) {
-                msg.style.color = "#00ff00";
-                msg.innerText = "🎉 太棒了，你掌握了 JS！";
-            }
+    // 从浏览器的本地存储读取历史留言（如果没存过，就是空数组）
+    let messages = JSON.parse(localStorage.getItem('myMessages')) || [];
+
+    // 渲染留言的函数
+    function renderMessages() {
+        list.innerHTML = ''; // 先清空列表
+        messages.forEach(msg => {
+            const div = document.createElement('div');
+            div.className = 'msg-item';
+            div.innerText = msg;
+            list.appendChild(div);
         });
-    </script>
+    }
+
+    // 点击按钮发布留言
+    btn.addEventListener('click', () => {
+        const text = input.value.trim();
+        if (text) {
+            messages.unshift(text); // 把新留言放到最前面
+            localStorage.setItem('myMessages', JSON.stringify(messages)); // 保存到本地
+            input.value = ''; // 清空输入框
+            renderMessages(); // 重新渲染
+        } else {
+            alert("留言不能为空哦！");
+        }
+    });
+
+    // 页面加载时，先渲染一次以前的留言
+    renderMessages();
+</script>
 
 </body>
 </html>
