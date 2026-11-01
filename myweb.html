@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>我的第一个网页</title>
+    <!-- 这里就是 CSS (皮肤) -->
+    <style>
+        body {
+            background-color: #f4f4f9;
+            text-align: center;
+            font-family: "Microsoft YaHei", sans-serif;
+            margin-top: 100px;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3; /* 鼠标放上去变深蓝 */
+        }
+        #msg {
+            margin-top: 30px;
+            font-size: 20px;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 这里就是 HTML (骨架) -->
+    <h1>🚀 欢迎来到我的个人主页</h1>
+    <p>这是我亲手写的第一个网页！</p >
+    
+    <button id="myBtn">点我试试</button>
+    <div id="msg"></div>
+
+    <!-- 这里就是 JavaScript (灵魂) -->
+    <script>
+        // 找到网页上的按钮
+        const btn = document.getElementById('myBtn');
+        // 找到用来显示文字的框
+        const msg = document.getElementById('msg');
+        let count = 0;
+
+        // 监听按钮点击事件
+        btn.addEventListener('click', function() {
+            count++;
+            msg.innerText = "🎉 你成功点击了 " + count + " 次！";
+            // 如果你点击了 5 次，变个颜色
+            if (count >= 5) {
+                msg.style.color = "#00ff00";
+                msg.innerText = "🎉 太棒了，你掌握了 JS！";
+            }
+        });
+    </script>
+
+</body>
+</html>
