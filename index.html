@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的云端留言板</title>
+    <title>我的实时留言板</title>
     <style>
         body { background-color: #f4f4f9; font-family: "Microsoft YaHei", sans-serif; padding: 20px; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -14,14 +14,13 @@
         .msg-item { background: #f9f9f9; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #007bff; word-wrap: break-word; }
         .time { font-size: 12px; color: #888; margin-top: 5px; }
     </style>
-    <!-- 引入 Supabase 的工具包 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
 <div class="container">
-    <h2>☁️ 全球可见留言板</h2>
-    <textarea id="msgInput" placeholder="让全世界都看到你的留言..."></textarea>
+    <h2>⚡ 实时匿名留言板</h2>
+    <textarea id="msgInput" placeholder="写点什么吧..."></textarea>
     <button id="submitBtn">发布留言</button>
     
     <div id="messageList">
@@ -30,18 +29,17 @@
 </div>
 
 <script>
-    // 你的专属钥匙已经填好啦！
+    // 这里放你的旧版长密钥
     const SUPABASE_URL = 'https://ytzfkeyrobjubitfddrt.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs';
+    const SUPABASE_KEY = 'sb_publishable_uFnRb5_2pem58m0rCCuWag_ev3SJVsc';
     
-    // 初始化连接
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const input = document.getElementById('msgInput');
     const btn = document.getElementById('submitBtn');
     const list = document.getElementById('messageList');
 
-    // 1. 从云端读取留言
+    // 1. 加载历史留言
     async function loadMessages() {
         list.innerHTML = '<div style="text-align:center; color:#888;">加载中...</div>';
         
@@ -51,8 +49,7 @@
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error("读取失败:", error);
-            list.innerHTML = '<div style="color:red;">读取失败，请检查配置。</div>';
+            list.innerHTML = '<div style="color:red;">读取失败。</div>';
             return;
         }
 
@@ -63,15 +60,27 @@
         }
 
         data.forEach(msg => {
-            const div = document.createElement('div');
-            div.className = 'msg-item';
-            const timeStr = new Date(msg.created_at).toLocaleString();
-            div.innerHTML = `<div>${msg.content}</div><div class="time">${timeStr}</div>`;
-            list.appendChild(div);
+            appendMessageToDOM(msg);
         });
     }
 
-    // 2. 发布新留言到云端
+    // 辅助函数：把一条留言画在网页上
+    function appendMessageToDOM(msg) {
+        const div = document.createElement('div');
+        div.className = 'msg-item';
+        const timeStr = new Date(msg.created_at).toLocaleString();
+        // 如果是旧版的匿名，就显示匿名
+        const name = msg.user_email || '匿名用户'; 
+        div.innerHTML = `
+            <div style="font-size:12px; color:#007bff; font-weight:bold; margin-bottom:5px;">👤 ${name}</div>
+            <div>${msg.content}</div>
+            <div class="time">${timeStr}</div>
+        `;
+        // 把新留言插到最前面
+        list.prepend(div);
+    }
+
+    // 2. 发布留言
     btn.addEventListener('click', async () => {
         const text = input.value.trim();
         if (!text) return alert("留言不能为空哦！");
@@ -79,7 +88,7 @@
         btn.innerText = '发送中...';
         btn.disabled = true;
 
-        const { data, error } = await client
+        const { error } = await client
             .from('messages')
             .insert([{ content: text }]);
 
@@ -87,15 +96,32 @@
         btn.disabled = false;
 
         if (error) {
-            console.error("发送失败:", error);
-            alert("发送失败了，请按 F12 看看控制台报错。");
+            alert("发送失败了: " + error.message);
         } else {
             input.value = ''; 
-            loadMessages(); 
+            // 注意：这里我们不需要再手动调用 loadMessages() 了！
+            // 因为我们开启了实时订阅，只要一存进去，网页就会自动收到通知
         }
     });
 
-    // 页面一打开，就先去云端拉取一次留言
+    // 3. ⚡ 核心魔法：开启实时订阅
+    client.channel('custom-all-channel')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+            console.log('收到新留言啦！', payload.new);
+            // 当有人发布新留言时，自动把它画在网页上
+            appendMessageToDOM(payload.new);
+        }
+      )
+      .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+              console.log('✅ 实时通道已连接！');
+          }
+      });
+
+    // 初始化页面
     loadMessages();
 </script>
 
