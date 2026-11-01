@@ -4,23 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>我的聊天室</title>
-    <style>
+   <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #ededed; font-family: "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .header { background-color: #f4f4f4; text-align: center; padding: 15px; font-size: 18px; font-weight: bold; color: #333; border-bottom: 1px solid #ddd; flex-shrink: 0; }
         #messageList { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+        
         .msg-row { display: flex; margin-bottom: 15px; width: 100%; }
         .msg-row.mine { justify-content: flex-end; }
         .msg-row.others { justify-content: flex-start; }
-        .msg-bubble { max-width: 75%; padding: 10px 15px; border-radius: 8px; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+        
+        /* 🌟 修复挤压竖排的核心代码 */
+        .msg-row > div { 
+            display: flex; 
+            flex-direction: column; 
+            max-width: 75%; 
+        }
+        .msg-row.mine > div { align-items: flex-end; }
+        .msg-row.others > div { align-items: flex-start; }
+
+        .msg-bubble { 
+            width: fit-content; 
+            min-width: 40px; 
+            padding: 10px 15px; 
+            border-radius: 8px; 
+            font-size: 15px; 
+            line-height: 1.4; 
+            word-wrap: break-word; 
+            word-break: break-all;
+        }
         .mine .msg-bubble { background-color: #95ec69; color: #000; border-top-right-radius: 0; }
         .others .msg-bubble { background-color: #ffffff; color: #333; border-top-left-radius: 0; }
+        
         .msg-info { font-size: 11px; color: #999; margin-bottom: 4px; }
         .mine .msg-info { text-align: right; }
         .input-area { background-color: #f7f7f7; padding: 10px; display: flex; border-top: 1px solid #ddd; flex-shrink: 0; }
         textarea { flex: 1; height: 40px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; resize: none; font-family: inherit; outline: none; }
         button { width: 70px; margin-left: 10px; background-color: #07c160; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 15px; }
-    </style>
+</style>
     <!-- 🌟 终极替换：饿了么提供的国内极速镜像源，极度稳定 -->
     <script src="./supabase.min.js"></script>
 </head>
