@@ -3,20 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的聊天室 & 五子棋</title>
+    <title>我的聊天室 & 联机五子棋</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #ededed; font-family: "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* 顶部导航栏 */
         .nav { background-color: #f4f4f4; display: flex; justify-content: space-around; padding: 10px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
         .nav button { width: 45%; padding: 8px; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; cursor: pointer; }
         .nav button.active { background-color: #07c160; color: white; border-color: #07c160; }
-
-        /* 内容区 */
         .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-
-        /* === 聊天室区域 === */
+        
+        /* 聊天室 */
         #chatArea { flex: 1; display: flex; flex-direction: column; height: 100%; }
         #messageList { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
         .msg-row { display: flex; margin-bottom: 15px; width: 100%; }
@@ -34,253 +30,239 @@
         textarea { flex: 1; height: 40px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; resize: none; font-family: inherit; outline: none; }
         .chat-btn { width: 70px; margin-left: 10px; background-color: #07c160; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 15px; }
 
-        /* === 五子棋区域 === */
+        /* 游戏 */
         #gameArea { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; background-color: #e5c299; height: 100%; padding: 10px; }
-        #gameCanvas { background-color: #e5c299; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
+        #gameCanvas { background-color: #e5c299; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; touch-action: none; }
         .game-controls { margin-top: 15px; display: flex; gap: 20px; }
         .game-controls button { padding: 10px 20px; background-color: #333; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
-        .game-controls button:hover { background-color: #555; }
         #gameStatus { margin-top: 10px; font-size: 18px; font-weight: bold; color: #333; }
     </style>
-    <!-- 🌟 引入本地核心库 -->
     <script src="./supabase.min.js"></script>
 </head>
 <body>
 
-<!-- 顶部切换按钮 -->
 <div class="nav">
     <button id="tabChat" class="active" onclick="switchTab('chat')">💬 聊天室</button>
-    <button id="tabGame" onclick="switchTab('game')">🎮 五子棋</button>
+    <button id="tabGame" onclick="switchTab('game')">🎮 联机五子棋</button>
 </div>
 
 <div class="content">
-    <!-- 聊天室界面 -->
     <div id="chatArea">
-        <div id="messageList">
-            <div style="text-align:center; color:#999; margin-top:20px;">正在加载数据...</div>
-        </div>
+        <div id="messageList"><div style="text-align:center; color:#999; margin-top:20px;">正在加载数据...</div></div>
         <div class="input-area">
             <textarea id="msgInput" placeholder="输入消息..."></textarea>
             <button type="button" class="chat-btn" id="submitBtn">发送</button>
         </div>
     </div>
 
-    <!-- 五子棋界面 -->
     <div id="gameArea">
-        <div id="gameStatus">当前回合：黑棋</div>
+        <div id="gameStatus">正在同步棋盘数据...</div>
         <canvas id="gameCanvas" width="360" height="360"></canvas>
         <div class="game-controls">
-            <button onclick="restartGame()">重新开始</button>
+            <button onclick="resetOnlineGame()">重新开局</button>
         </div>
     </div>
 </div>
 
 <script>
-    // === 顶部切换逻辑 ===
+    // 顶部切换逻辑
     function switchTab(tab) {
         document.getElementById('chatArea').style.display = tab === 'chat' ? 'flex' : 'none';
         document.getElementById('gameArea').style.display = tab === 'game' ? 'flex' : 'none';
         document.getElementById('tabChat').classList.toggle('active', tab === 'chat');
         document.getElementById('tabGame').classList.toggle('active', tab === 'game');
+        if(tab === 'game') loadGameState(); // 切过来时拉取最新棋盘
     }
 
-    // === 1. 聊天室逻辑 ===
-    if (typeof supabase !== 'undefined') {
-        const SUPABASE_URL = 'https://ytzfkeyrobjubitfddrt.supabase.co';
-        // ⚠️ 记得这里换成你的 eyJ... 密钥
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs'; 
-        
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        const input = document.getElementById('msgInput');
-        const btn = document.getElementById('submitBtn');
-        const list = document.getElementById('messageList');
+    // ================= 1. 全局 Supabase 初始化 =================
+    const SUPABASE_URL = 'https://ytzfkeyrobjubitfddrt.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs'; // ⚠️ 务必替换
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let myId = localStorage.getItem('chat_my_id');
-        if (!myId) {
-            myId = '用户_' + Math.floor(Math.random() * 10000);
-            localStorage.setItem('chat_my_id', myId);
-        }
+    // ================= 2. 聊天室逻辑 =================
+    const input = document.getElementById('msgInput');
+    const btn = document.getElementById('submitBtn');
+    const list = document.getElementById('messageList');
 
-        function appendMessage(msg) {
-            const isMine = (msg.user_email === myId);
-            const timeStr = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            const row = document.createElement('div');
-            row.className = `msg-row ${isMine ? 'mine' : 'others'}`;
-            row.innerHTML = `
-                <div>
-                    <div class="msg-info">${isMine ? '我' : msg.user_email || '匿名'} · ${timeStr}</div>
-                    <div class="msg-bubble">${msg.content}</div>
-                </div>
-            `;
-            list.appendChild(row);
-            list.scrollTop = list.scrollHeight; 
-        }
-
-        async function loadMessages() {
-            const { data, error } = await client.from('messages').select('*').order('created_at', { ascending: true }); 
-            if (error) {
-                list.innerHTML = '<div style="color:red; text-align:center;">❌ 读取历史失败</div>';
-                return;
-            }
-            list.innerHTML = ''; 
-            if(data.length === 0) {
-                list.innerHTML = '<div style="text-align:center; color:#999;">还没有人说话，来打个招呼吧！</div>';
-            } else {
-                data.forEach(msg => appendMessage(msg));
-            }
-        }
-
-        btn.addEventListener('click', async () => {
-            const text = input.value.trim();
-            if (!text) return;
-            btn.innerText = '发送中'; btn.disabled = true;
-            const { error } = await client.from('messages').insert([{ content: text, user_email: myId }]);
-            btn.innerText = '发送'; btn.disabled = false; input.focus();
-            if (error) { alert("❌ 发送失败: " + error.message); } else { input.value = ''; }
-        });
-
-        client.channel('my_chat_room')
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-              appendMessage(payload.new); 
-          }).subscribe();
-
-        loadMessages();
+    let myId = localStorage.getItem('chat_my_id');
+    if (!myId) {
+        myId = '玩家_' + Math.floor(Math.random() * 1000);
+        localStorage.setItem('chat_my_id', myId);
     }
 
-    // === 2. 五子棋逻辑 (纯前端双人) ===
+    function appendMessage(msg) {
+        const isMine = (msg.user_email === myId);
+        const timeStr = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const row = document.createElement('div');
+        row.className = `msg-row ${isMine ? 'mine' : 'others'}`;
+        row.innerHTML = `<div><div class="msg-info">${isMine ? '我' : msg.user_email || '匿名'} · ${timeStr}</div><div class="msg-bubble">${msg.content}</div></div>`;
+        list.appendChild(row);
+        list.scrollTop = list.scrollHeight; 
+    }
+
+    async function loadMessages() {
+        const { data, error } = await client.from('messages').select('*').order('created_at', { ascending: true }); 
+        if (error) { list.innerHTML = '<div style="color:red; text-align:center;">❌ 读取失败</div>'; return; }
+        list.innerHTML = ''; 
+        if(data.length === 0) { list.innerHTML = '<div style="text-align:center; color:#999;">还没有人说话</div>'; } 
+        else { data.forEach(msg => appendMessage(msg)); }
+    }
+
+    btn.addEventListener('click', async () => {
+        const text = input.value.trim(); if (!text) return;
+        btn.innerText = '...'; btn.disabled = true;
+        await client.from('messages').insert([{ content: text, user_email: myId }]);
+        btn.innerText = '发送'; btn.disabled = false; input.focus(); input.value = '';
+    });
+
+    // ================= 3. 联机五子棋逻辑 =================
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const statusText = document.getElementById('gameStatus');
-    const gridSize = 24; // 格子间距
-    const padding = 12;  // 边缘留白
-    const boardSize = 15; // 15x15 棋盘
+    const gridSize = 24, padding = 12, boardSize = 15;
     
     let board = [];
-    let isBlackTurn = true;
-    let gameOver = false;
-    // 记录星位(天元等)
-    const stars = [[3,3], [11,3], [3,11], [11,11], [7,7]];
+    let currentTurn = 'black';
+    let winner = 'none';
+    
+    // 初始化本地空棋盘
+    function initEmptyBoard() {
+        board = Array.from({ length: boardSize }, () => Array(boardSize).fill(0));
+    }
+    initEmptyBoard();
 
-    function initBoard() {
-        board = [];
-        for (let i = 0; i < boardSize; i++) {
-            board[i] = [];
-            for (let j = 0; j < boardSize; j++) {
-                board[i][j] = 0; // 0为空，1为黑，2为白
-            }
-        }
-        isBlackTurn = true;
-        gameOver = false;
-        statusText.innerText = "当前回合：黑棋";
-        statusText.style.color = "#333";
+    // 从数据库拉取棋盘数据
+    async function loadGameState() {
+        const { data, error } = await client.from('gomoku').select('*').eq('id', 1).single();
+        if (error) { console.error("拉取棋盘失败:", error); return; }
+        
+        try { board = JSON.parse(data.board); } catch(e) { initEmptyBoard(); }
+        
+        // 如果是初始状态(空字符串或长度不对)，则初始化
+        if (!Array.isArray(board) || board.length !== boardSize) initEmptyBoard();
+        
+        currentTurn = data.current_turn;
+        winner = data.winner;
+        
+        updateStatusText();
         drawBoard();
     }
 
+    function updateStatusText() {
+        if (winner === 'none') {
+            statusText.innerText = "当前回合：" + (currentTurn === 'black' ? "黑棋" : "白棋");
+            statusText.style.color = "#333";
+        } else {
+            statusText.innerText = "🎉 " + (winner === 'black' ? "黑棋" : "白棋") + " 获胜！";
+            statusText.style.color = "red";
+        }
+    }
+
+    // 画棋盘
     function drawBoard() {
         ctx.fillStyle = '#e5c299';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 画网格
-        ctx.beginPath();
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
         for (let i = 0; i < boardSize; i++) {
-            ctx.moveTo(padding + i * gridSize, padding);
-            ctx.lineTo(padding + i * gridSize, canvas.height - padding);
-            ctx.moveTo(padding, padding + i * gridSize);
-            ctx.lineTo(canvas.width - padding, padding + i * gridSize);
+            ctx.moveTo(padding + i * gridSize, padding); ctx.lineTo(padding + i * gridSize, canvas.height - padding);
+            ctx.moveTo(padding, padding + i * gridSize); ctx.lineTo(canvas.width - padding, padding + i * gridSize);
         }
         ctx.stroke();
-
-        // 画星位
-        ctx.fillStyle = '#333';
-        stars.forEach(star => {
-            ctx.beginPath();
-            ctx.arc(padding + star[0] * gridSize, padding + star[1] * gridSize, 3, 0, Math.PI * 2);
-            ctx.fill();
-        });
 
         // 画棋子
         for (let i = 0; i < boardSize; i++) {
             for (let j = 0; j < boardSize; j++) {
-                if (board[i][j] !== 0) {
-                    drawPiece(i, j, board[i][j]);
-                }
+                if (board[i][j] !== 0) drawPiece(i, j, board[i][j]);
             }
         }
     }
 
     function drawPiece(x, y, color) {
         ctx.beginPath();
-        // 渐变效果，让棋子有立体感
-        let gradient = ctx.createRadialGradient(
-            padding + x * gridSize - 2, padding + y * gridSize - 2, 2,
-            padding + x * gridSize, padding + y * gridSize, gridSize / 2
-        );
-        if (color === 1) {
-            gradient.addColorStop(0, '#666'); gradient.addColorStop(1, '#000');
-        } else {
-            gradient.addColorStop(0, '#fff'); gradient.addColorStop(1, '#ccc');
-        }
+        let gradient = ctx.createRadialGradient(padding + x * gridSize - 2, padding + y * gridSize - 2, 2, padding + x * gridSize, padding + y * gridSize, gridSize / 2);
+        if (color === 1) { gradient.addColorStop(0, '#666'); gradient.addColorStop(1, '#000'); } 
+        else { gradient.addColorStop(0, '#fff'); gradient.addColorStop(1, '#ccc'); }
         ctx.fillStyle = gradient;
         ctx.arc(padding + x * gridSize, padding + y * gridSize, gridSize / 2 - 2, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    canvas.addEventListener('click', (e) => {
-        if (gameOver) return;
+    // 点击下棋
+    canvas.addEventListener('click', async (e) => {
+        if (winner !== 'none') return; // 游戏结束
         
         const rect = canvas.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
-        
-        // 计算点击的是哪个交叉点
-        const x = Math.round((clickX - padding) / gridSize);
-        const y = Math.round((clickY - padding) / gridSize);
+        const x = Math.round((e.clientX - rect.left - padding) / gridSize);
+        const y = Math.round((e.clientY - rect.top - padding) / gridSize);
 
-        // 越界或已经有棋子
+        // 越界或已有棋子
         if (x < 0 || x >= boardSize || y < 0 || y >= boardSize || board[x][y] !== 0) return;
 
-        board[x][y] = isBlackTurn ? 1 : 2;
-        drawPiece(x, y, board[x][y]);
-
-        if (checkWin(x, y, board[x][y])) {
-            gameOver = true;
-            statusText.innerText = (isBlackTurn ? "黑棋" : "白棋") + " 获胜！🎉";
-            statusText.style.color = "red";
+        const myColor = currentTurn === 'black' ? 1 : 2;
+        board[x][y] = myColor;
+        
+        // 检查输赢
+        if (checkWin(x, y, myColor)) {
+            winner = currentTurn === 'black' ? 'black' : 'white';
         } else {
-            isBlackTurn = !isBlackTurn;
-            statusText.innerText = "当前回合：" + (isBlackTurn ? "黑棋" : "白棋");
+            currentTurn = currentTurn === 'black' ? 'white' : 'black';
         }
+
+        // 立刻更新本地显示
+        drawBoard();
+        updateStatusText();
+
+        // 同步到数据库
+        await client.from('gomoku').update({
+            board: JSON.stringify(board),
+            current_turn: currentTurn,
+            winner: winner
+        }).eq('id', 1);
     });
 
+    // 判断五子连珠
     function checkWin(x, y, color) {
-        const directions = [[1, 0], [0, 1], [1, 1], [1, -1]]; // 横、竖、右斜、左斜
-        for (let [dx, dy] of directions) {
+        const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+        for (let [dx, dy] of dirs) {
             let count = 1;
-            // 正向找
-            for (let step = 1; step < 5; step++) {
-                let nx = x + dx * step, ny = y + dy * step;
-                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize || board[nx][ny] !== color) break;
-                count++;
-            }
-            // 反向找
-            for (let step = 1; step < 5; step++) {
-                let nx = x - dx * step, ny = y - dy * step;
-                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize || board[nx][ny] !== color) break;
-                count++;
-            }
+            for (let step = 1; step < 5; step++) { let nx = x + dx * step, ny = y + dy * step; if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize || board[nx][ny] !== color) break; count++; }
+            for (let step = 1; step < 5; step++) { let nx = x - dx * step, ny = y - dy * step; if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize || board[nx][ny] !== color) break; count++; }
             if (count >= 5) return true;
         }
         return false;
     }
 
-    function restartGame() {
-        initBoard();
+    // 重新开局
+    async function resetOnlineGame() {
+        initEmptyBoard();
+        currentTurn = 'black';
+        winner = 'none';
+        drawBoard();
+        updateStatusText();
+        await client.from('gomoku').update({ board: '[]', current_turn: 'black', winner: 'none' }).eq('id', 1);
     }
 
-    // 初始化棋盘
-    initBoard();
+    // ================= 4. 建立实时订阅 =================
+    client.channel('realtime_room')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+          appendMessage(payload.new); 
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'gomoku' }, (payload) => {
+          // 监听到别人下棋了，立刻同步
+          if (payload.new.id === 1) {
+              try { board = JSON.parse(payload.new.board); } catch(e) { return; }
+              if (!Array.isArray(board) || board.length !== boardSize) initEmptyBoard();
+              currentTurn = payload.new.current_turn;
+              winner = payload.new.winner;
+              drawBoard();
+              updateStatusText();
+          }
+      })
+      .subscribe();
+
+    // 初始化
+    loadMessages();
 </script>
 
 </body>
