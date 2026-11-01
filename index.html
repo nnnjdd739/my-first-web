@@ -23,33 +23,41 @@
     <textarea id="msgInput" placeholder="写点什么吧..."></textarea>
     <button id="submitBtn">发布留言</button>
     
-    <div id="messageList">
-        <!-- 留言会显示在这里 -->
-    </div>
+    <div id="messageList"></div>
 </div>
 
 <script>
     const SUPABASE_URL = 'https://ytzfkeyrobjubitfddrt.supabase.co';
-    // ⚠️ 请务必确保这里填的是你复制的、完整的旧版长密钥（eyJ... 开头）
+    // ⚠️ 千万别漏了这里的旧版长密钥 eyJ...
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs';
     
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
     const input = document.getElementById('msgInput');
     const btn = document.getElementById('submitBtn');
     const list = document.getElementById('messageList');
 
-    // 1. 加载历史留言（强制降序：最新的排最前面）
+    // 核心渲染函数：统一生成 HTML 字符串
+    function createMessageHTML(msg) {
+        const timeStr = new Date(msg.created_at).toLocaleString();
+        const name = msg.user_email || '匿名用户'; 
+        return `
+            <div class="msg-header" style="font-size:12px; color:#007bff; font-weight:bold; margin-bottom:5px;">👤 ${name}</div>
+            <div>${msg.content}</div>
+            <div class="time">${timeStr}</div>
+        `;
+    }
+
+    // 1. 加载历史留言（强制降序：最新的在最前）
     async function loadMessages() {
         list.innerHTML = '<div style="text-align:center; color:#888;">加载中...</div>';
         
         const { data, error } = await client
             .from('messages')
             .select('*')
-            .order('created_at', { ascending: false }); // 🌟 降序
+            .order('created_at', { ascending: false }); // ⚠️ 降序，最新的排第一
 
         if (error) {
-            list.innerHTML = '<div style="color:red;">读取失败，请检查密钥或权限。</div>';
+            list.innerHTML = '<div style="color:red;">读取失败。</div>';
             return;
         }
 
@@ -59,34 +67,12 @@
             return;
         }
 
-        // 因为查出来是降序的，循环追加到末尾，自然就是最新的在最上面
+        // 直接生成一个大字符串，一次性塞进去。这样绝对不会乱！
+        let htmlStr = '';
         data.forEach(msg => {
-            appendMessageToDOM(msg, false); 
+            htmlStr += `<div class="msg-item">${createMessageHTML(msg)}</div>`;
         });
-    }
-
-    // 辅助函数：把留言画在网页上
-    function appendMessageToDOM(msg, isNew) {
-        const emptyTip = list.querySelector('div[style*="text-align:center"]');
-        if (emptyTip) emptyTip.remove();
-
-        const div = document.createElement('div');
-        div.className = 'msg-item';
-        const timeStr = new Date(msg.created_at).toLocaleString();
-        const name = msg.user_email || '匿名用户'; 
-        div.innerHTML = `
-            <div style="font-size:12px; color:#007bff; font-weight:bold; margin-bottom:5px;">👤 ${name}</div>
-            <div>${msg.content}</div>
-            <div class="time">${timeStr}</div>
-        `;
-
-        if (isNew) {
-            // 🌟 如果是刚发的新留言，直接用 prepend 插在最顶部
-            list.prepend(div); 
-        } else {
-            // 历史留言按顺序排好
-            list.appendChild(div); 
-        }
+        list.innerHTML = htmlStr;
     }
 
     // 2. 发布留言
@@ -111,15 +97,20 @@
         }
     });
 
-    // 3. ⚡ 核心魔法：开启实时订阅
+    // 3. ⚡ 实时订阅
     client.channel('custom-all-channel')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-            console.log('收到新留言啦！', payload.new);
-            // 收到别人发的新留言，也直接插在最顶部
-            appendMessageToDOM(payload.new, true); 
+            // 如果是新发出来的，直接创建节点插到最前面（prepend）
+            const emptyTip = list.querySelector('div[style*="text-align:center"]');
+            if (emptyTip) emptyTip.remove();
+
+            const div = document.createElement('div');
+            div.className = 'msg-item';
+            div.innerHTML = createMessageHTML(payload.new);
+            list.prepend(div); // 空降第一名！
         }
       )
       .subscribe();
