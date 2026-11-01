@@ -30,7 +30,7 @@
 
 <script>
     const SUPABASE_URL = 'https://ytzfkeyrobjubitfddrt.supabase.co';
-    // ⚠️ 确保这里是你完整的 eyJ... 开头的旧版密钥
+    // ⚠️ 请务必确保这里填的是你复制的、完整的旧版长密钥（eyJ... 开头）
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0emZrZXlyb2JqdWJpdGZkZHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NzIxMjMsImV4cCI6MjEwOTA0ODEyM30.TQXZdhW7FRnIAwXy_JDg8_4C2o0bYXS6S0GX9_D2hEs';
     
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -39,17 +39,17 @@
     const btn = document.getElementById('submitBtn');
     const list = document.getElementById('messageList');
 
-    // 1. 加载历史留言（倒序：最新的在最上面）
+    // 1. 加载历史留言（强制降序：最新的排最前面）
     async function loadMessages() {
         list.innerHTML = '<div style="text-align:center; color:#888;">加载中...</div>';
         
         const { data, error } = await client
             .from('messages')
             .select('*')
-            .order('created_at', { ascending: false }); // 🌟 这里是 false，倒序
+            .order('created_at', { ascending: false }); // 🌟 降序
 
         if (error) {
-            list.innerHTML = '<div style="color:red;">读取失败。</div>';
+            list.innerHTML = '<div style="color:red;">读取失败，请检查密钥或权限。</div>';
             return;
         }
 
@@ -59,14 +59,14 @@
             return;
         }
 
+        // 因为查出来是降序的，循环追加到末尾，自然就是最新的在最上面
         data.forEach(msg => {
-            appendMessageToDOM(msg);
+            appendMessageToDOM(msg, false); 
         });
     }
 
-    // 辅助函数：把一条留言画在网页上（插到最前面）
-    function appendMessageToDOM(msg) {
-        // 如果页面上有"还没有留言"的提示，先把它删掉
+    // 辅助函数：把留言画在网页上
+    function appendMessageToDOM(msg, isNew) {
         const emptyTip = list.querySelector('div[style*="text-align:center"]');
         if (emptyTip) emptyTip.remove();
 
@@ -79,8 +79,14 @@
             <div>${msg.content}</div>
             <div class="time">${timeStr}</div>
         `;
-        // 🌟 用 prepend，把新留言永远插在最上面！
-        list.prepend(div);
+
+        if (isNew) {
+            // 🌟 如果是刚发的新留言，直接用 prepend 插在最顶部
+            list.prepend(div); 
+        } else {
+            // 历史留言按顺序排好
+            list.appendChild(div); 
+        }
     }
 
     // 2. 发布留言
@@ -112,8 +118,8 @@
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
             console.log('收到新留言啦！', payload.new);
-            // 收到新留言，直接插在最上面
-            appendMessageToDOM(payload.new); 
+            // 收到别人发的新留言，也直接插在最顶部
+            appendMessageToDOM(payload.new, true); 
         }
       )
       .subscribe();
